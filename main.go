@@ -7,13 +7,17 @@ import (
 	"log"
 	"time"
 
-	"github.com/hashicorp/vault-client-go"
+	vault "github.com/hashicorp/vault/api"
+	auth "github.com/hashicorp/vault/api/auth/approle"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
 	vaultAddr string
 	rootToken string
+
+	roleID   string
+	secretID string
 
 	tlsEnabled bool
 	serverCert string
@@ -24,6 +28,9 @@ var (
 func init() {
 	flag.StringVar(&vaultAddr, "address", "http://127.0.0.1:8200", "Vault address")
 	flag.StringVar(&rootToken, "token", "", "Vault root token")
+
+	flag.StringVar(&roleID, "role-id", "", "Vault role ID")
+	flag.StringVar(&secretID, "secret-id", "", "Vault secret ID")
 
 	flag.BoolVar(&tlsEnabled, "tls", false, "Enable TLS")
 	flag.StringVar(&serverCert, "server-cert", "", "Server certificate")
@@ -36,24 +43,19 @@ func main() {
 	ctx := context.Background()
 
 	// prepare a client
-	client, err := newVaultClient()
+	client, err := newVaultClient(ctx)
 	if err != nil {
-		log.Fatalf("failed to create vault client: %v", err)
-	}
-
-	// authenticate with a root token (insecure)
-	if err := client.SetToken(rootToken); err != nil {
-		log.Fatalf("failed to set token: %v", err)
+		log.Fatal(err)
 	}
 
 	// read the secret
-	s, err := client.Secrets.KvV2Read(ctx, "db", vault.WithMountPath("secret"))
+	s, err := client.KVv2("secret").Get(ctx, "db")
 	if err != nil {
 		log.Fatalf("failed to read secret: %v", err)
 	}
 
 	// get the dsn
-	dsn, ok := s.Data.Data["dsn"].(string)
+	dsn, ok := s.Data["dsn"].(string)
 	if !ok {
 		log.Fatal("failed to get dsn")
 	}
@@ -68,7 +70,7 @@ func main() {
 	defer pool.Close()
 
 	// simple query
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	conn, err := pool.Acquire(ctx)
@@ -102,27 +104,38 @@ func newPostgresClient(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func newVaultClient() (*vault.Client, error) {
-	opts := []vault.ClientOption{
-		vault.WithAddress(vaultAddr),
-		vault.WithRequestTimeout(30 * time.Second),
-	}
+func newVaultClient(ctx context.Context) (*vault.Client, error) {
+	config := vault.DefaultConfig()
+	config.Address = vaultAddr
 
 	if tlsEnabled {
-		tlsConfig := vault.TLSConfiguration{
-			InsecureSkipVerify: false,
-			ServerCertificate: vault.ServerCertificateEntry{
-				FromFile: serverCert,
-			},
-			ClientCertificate: vault.ClientCertificateEntry{
-				FromFile: clientCert,
-			},
-			ClientCertificateKey: vault.ClientCertificateKeyEntry{
-				FromFile: clientKey,
-			},
-		}
-		opts = append(opts, vault.WithTLS(tlsConfig))
+		config.ConfigureTLS(&vault.TLSConfig{
+			ClientCert: clientCert,
+			ClientKey:  clientKey,
+			CACert:     serverCert,
+			Insecure:   false,
+		})
 	}
 
-	return vault.New(opts...)
+	client, err := vault.NewClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault client: %v", err)
+	}
+
+	appRoleAuth, err := auth.NewAppRoleAuth(roleID, &auth.SecretID{FromString: secretID})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create app role: %v", err)
+	}
+
+	authInfo, err := client.Auth().Login(ctx, appRoleAuth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to login using app role: %v", err)
+	}
+	if authInfo == nil {
+		return nil, fmt.Errorf("no auth info was returned after login")
+	}
+
+	client.SetToken(authInfo.Auth.ClientToken)
+
+	return client, nil
 }
