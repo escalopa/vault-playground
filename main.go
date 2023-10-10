@@ -13,6 +13,8 @@ import (
 )
 
 var (
+	appName string
+
 	vaultAddr string
 	rootToken string
 
@@ -26,6 +28,8 @@ var (
 )
 
 func init() {
+	flag.StringVar(&appName, "app-name", "vault-playground", "App name")
+
 	flag.StringVar(&vaultAddr, "address", "http://127.0.0.1:8200", "Vault address")
 	flag.StringVar(&rootToken, "token", "", "Vault root token")
 
@@ -36,6 +40,7 @@ func init() {
 	flag.StringVar(&serverCert, "server-cert", "", "Server certificate")
 	flag.StringVar(&clientCert, "client-cert", "", "Client certificate")
 	flag.StringVar(&clientKey, "client-key", "", "Client key")
+
 	flag.Parse()
 }
 
@@ -49,7 +54,8 @@ func main() {
 	}
 
 	// read the secret
-	s, err := client.KVv2("secret").Get(ctx, "db")
+	homePath := fmt.Sprintf("application/%s", appName)
+	s, err := client.KVv2(homePath).Get(ctx, "db")
 	if err != nil {
 		log.Fatalf("failed to read secret: %v", err)
 	}
