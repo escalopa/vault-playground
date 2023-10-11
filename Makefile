@@ -26,6 +26,9 @@ vault-tls:
 	mkdir -p cert
 	vault server -dev -dev-tls -dev-tls-cert-dir="$(PWD)/cert" -dev-root-token-id=$(VAULT_TOKEN)
 
+vault-prod:
+	vault server -config=config.hcl
+
 role-create:
 	vault write auth/approle/role/$(ROLE_ID) \
     secret_id_ttl=10m \
@@ -35,8 +38,8 @@ role-create:
     secret_id_num_uses=40 \
     token_policies=$(POLOLICY_ID)
 
-polic-create:
-	vault policy write $(POLOLICY_ID) ./vault-playground-policy.hcl
+policy-create:
+	vault policy write $(POLOLICY_ID) ./policy.hcl
 
 dsn-create:
-	vault kv put secret/$(APP_NAME)/db dsn="postgres://postgres:postgres@localhost:5432/vault-db
+	vault kv put --mount=secret $(APP_NAME)/db dsn="postgres://postgres:postgres@localhost:5432/vault-db"

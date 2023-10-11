@@ -49,6 +49,36 @@ make dns-create
 make run
 ```
 
+--- 
+
+## Production Use Case 🏘
+
+1. Create directory `./vault/data`
+```shell
+mkdir -p ./vault/data
+```
+
+2. Start server 
+```shell 
+sudo make vault-prod
+```
+
+3. Init the server
+```shell
+vault operator init
+```
+
+4. Unseal the server using 3 secrets, Secrets can be found in the output of the 3rd command
+```shell
+vault operator unseal
+```
+
+5. Login to the server, Token can be found in the output of the 3rd command
+```shell
+vault login
+```
+
+
 ## Milestones 🚀
 
 ### v1.0.0 🎯
