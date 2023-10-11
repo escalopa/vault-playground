@@ -90,3 +90,4 @@ vault login
 - Create approle, policy for application
 - Create a vault client with approle
 - Read secrets from vault with approle policies
+- Run vault in production mode
