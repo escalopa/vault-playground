@@ -5,11 +5,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"time"
+
+	"github.com/escalopa/vault-playground/internal/handler"
+	"github.com/escalopa/vault-playground/internal/pg"
+	"github.com/escalopa/vault-playground/internal/service"
 )
 
 var (
 	appName string
+	port    string
 
 	vaultAddr string
 	rootToken string
@@ -25,6 +29,7 @@ var (
 
 func init() {
 	flag.StringVar(&appName, "app-name", "vault-playground", "App name")
+	flag.StringVar(&port, "port", "8080", "App port")
 
 	flag.StringVar(&vaultAddr, "address", "http://127.0.0.1:8200", "Vault address")
 	flag.StringVar(&rootToken, "token", "", "Vault root token")
@@ -55,7 +60,7 @@ func main() {
 		log.Fatalf("failed to read secret: %v", err)
 	}
 
-	// get the dsn
+	// get the database dsn
 	dsn, ok := s.Data["dsn"].(string)
 	if !ok {
 		log.Fatal("failed to get dsn")
@@ -70,21 +75,14 @@ func main() {
 	// close the connection
 	defer pool.Close()
 
-	// simple query
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
-	defer cancel()
+	storageFacade := pg.New(pool)
+	ordersService := service.NewOrdersService(storageFacade)
 
-	conn, err := pool.Acquire(ctx)
+	h := handler.New(ordersService)
+
+	log.Default().Printf("starting server at 0.0.0.0:%s", port)
+	err = h.Start(fmt.Sprintf(":%s", port))
 	if err != nil {
-		log.Fatalf("failed to acquire connection: %v", err)
+		log.Fatalf("failed to start server: %v", err)
 	}
-
-	defer conn.Release()
-
-	_, err = conn.Exec(ctx, "SELECT 1")
-	if err != nil {
-		log.Fatalf("failed to execute query: %v", err)
-	}
-
-	log.Println("Done")
 }

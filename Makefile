@@ -1,16 +1,22 @@
+# Vault Cofig
 VAULT_ADDR=http://127.0.0.1:8200
 VAULT_TOKEN=my-root-token
 TLS=false
 
+# Application Config
 APP_NAME=vault-playground
+PORT=8080
+
+# Application Vault Config
 ROLE_ID=$(APP_NAME)-role
-POLOLICY_ID=$(APP_NAME)-policy
+POLICY_ID=$(APP_NAME)-policy
 
 run:
 	APP_ROLE_ID="$$(vault read -field=role_id auth/approle/role/$(ROLE_ID)/role-id )"; \
 	APP_SECRET_ID="$$(vault write  -f -field=secret_id auth/approle/role/$(ROLE_ID)/secret-id )"; \
-	go run *.go \
+	go run cmd/*.go \
 		--app-name=$(APP_NAME) \
+		--port=$(PORT) \
 		--address=$(VAULT_ADDR) \
 		--role-id=$$APP_ROLE_ID \
 		--secret-id=$$APP_SECRET_ID \
@@ -36,10 +42,13 @@ role-create:
     token_ttl=20m \
     token_max_ttl=30m \
     secret_id_num_uses=40 \
-    token_policies=$(POLOLICY_ID)
+    token_policies=$(POLICY_ID)
 
 policy-create:
-	vault policy write $(POLOLICY_ID) ./policy.hcl
+	vault policy write $(POLICY_ID) ./policy.hcl
 
 dsn-create:
 	vault kv put --mount=secret $(APP_NAME)/db dsn="postgres://postgres:postgres@localhost:5432/vault-db"
+
+migrate:
+	migrate -path ./migrations -database "postgres://postgres:postgres@localhost:5432/vault-db?sslmode=disable" up

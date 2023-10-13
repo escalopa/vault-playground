@@ -9,44 +9,54 @@ An enviroment to play with Hashicorp Vault &amp; learn it in depth
 
 ## Run 💨
 
-1. Start the docker containers (PG/Redis)
+1. Start the docker containers
 ```shell
 docker compose up -d
 ```
 
-2. Start vault in insecure mode
+2. Run the migration scripts
+```shell
+make migrate
+```
+
+3. Start vault in insecure mode
 ```shell
 make vault
 ```
 
-3. Set vault address in shell (On TLS use `https`)
+4. Set vault address in shell (On TLS use `https`)
 ```shell
 export VAULT_ADDR=http://127.0.0.1:8200
 ```
 
-4. Enable role path in vault
+5. Enable role path in vault
 ```shell
 vault auth enable approle
 ```
 
-5. Create role for app
+6. Create role for app
 ```shell
 make role-create
 ```
 
-6. Set role policy
+7. Set role policy
 ```shell
 make policy-create
 ```
 
-7. Set database dsn secret
+8. Set database dsn secret
 ```shell
 make dns-create
 ```
 
-8. Run the app
+9. Run the app
 ```shell
 make run
+```
+
+10. Get user orders
+```shell
+curl -q http://localhost:8080/order/101 | jq
 ```
 
 --- 
@@ -78,7 +88,6 @@ vault operator unseal
 vault login
 ```
 
-
 ## Milestones 🚀
 
 ### v1.0.0 🎯
@@ -91,3 +100,6 @@ vault login
 - Create a vault client with approle
 - Read secrets from vault with approle policies
 - Run vault in production mode
+
+### v3.0.0 🎯
+- 
