@@ -88,6 +88,48 @@ vault operator unseal
 vault login
 ```
 
+## Database & Dynamic Secrets 🗄
+
+Before we start make sure vault is up and running
+
+1. Create a role for vault in postgres db
+```shell
+docker exec -i  db psql -U postgres -c "CREATE ROLE \"vault-ro\" NOINHERIT;"
+```
+
+2. Grant the ability to read all tables to vault role
+```shell
+docker exec -i  db psql -U postgres -c "GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"vault-ro\";"
+``` 
+
+3. Enable database secrets engine
+```shell
+vault secrets enable database
+```
+
+4. Create database configuration in vault
+```shell
+make vault-db
+```
+
+5. Create database role in vault
+```shell
+make db-role-create
+```
+
+6. Get sample database credentials
+```shell
+vault read database/creds/readonly
+```
+
+7. Check the database credentials in postgres
+```shell
+docker exec -i \       
+    db \
+    psql -U postgres -c "SELECT usename, valuntil FROM pg_user;"
+```
+
+
 ## Milestones 🚀
 
 ### v1.0.0 🎯

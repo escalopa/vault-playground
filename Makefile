@@ -35,6 +35,15 @@ vault-tls:
 vault-prod:
 	vault server -config=config.hcl
 
+vault-db:
+	POSTGRES_URL="localhost:5432"; \
+	vault write database/config/postgresql \
+		plugin_name=postgresql-database-plugin \
+		connection_url="postgresql://{{username}}:{{password}}@$${POSTGRES_URL}/postgres?sslmode=disable" \
+		allowed_roles=readonly \
+		username="postgres" \
+		password="postgres" 
+
 role-create:
 	vault write auth/approle/role/$(ROLE_ID) \
     secret_id_ttl=10m \
@@ -46,6 +55,13 @@ role-create:
 
 policy-create:
 	vault policy write $(POLICY_ID) ./policy.hcl
+
+db-role-create:
+	vault write database/roles/readonly \
+      db_name=postgresql \
+      creation_statements=@readonly.sql \
+      default_ttl=1h \
+      max_ttl=24h
 
 dsn-create:
 	vault kv put --mount=secret $(APP_NAME)/db dsn="postgres://postgres:postgres@localhost:5432/vault-db"
