@@ -144,4 +144,5 @@ docker exec -i \
 - Run vault in production mode
 
 ### v3.0.0 🎯
-- 
+- Link vault with postgres
+- Create/Read dynamic secrets
